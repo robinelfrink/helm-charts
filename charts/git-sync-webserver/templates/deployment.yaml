@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "git-sync-webserver.fullname" . }}
+  labels:
+    {{- include "git-sync-webserver.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "git-sync-webserver.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "git-sync-webserver.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: server
+
+          # Static
+          {{- if eq .Values.webserver.type "static" }}
+          image: "{{ .Values.webserver.types.static.image.repository }}:{{ .Values.webserver.types.static.image.tag }}"
+          {{-   with .Values.webserver.types.static.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{-   end }}
+          {{-   with .Values.webserver.types.static.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{-   end}}
+
+          # Python
+          {{- else if eq .Values.webserver.type "python" }}
+          image: "{{ .Values.webserver.types.python.image.repository }}:{{ .Values.webserver.types.python.image.tag }}"
+          command: ['sh', '/entrypoint.sh']
+          env:
+            - name: GUNICORN_PORT
+              value: "{{ .Values.webserver.port }}"
+            - name: GUNICORN_WORKERS
+              value: "{{ .Values.webserver.types.python.gunicorn.workers }}"
+            - name: GUNICORN_MODULE
+              value: "{{ .Values.webserver.types.python.gunicorn.module }}"
+          {{- end }}
+
+          ####
+          {{- with .Values.webserver.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.webserver.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.webserver.port }}
+              protocol: TCP
+          {{- with .Values.webserver.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webserver.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webserver.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: git
+              mountPath: /data
+              subPath: git/head/{{ trimAll "/" .Values.webserver.path }}
+              readOnly: true
+
+          # Python
+          {{- if eq .Values.webserver.type "python" }}
+            - name: configmap
+              mountPath: /entrypoint.sh
+              subPath: python.entrypoint.sh
+            - name: tmp
+              mountPath: /tmp
+          {{- end }}
+
+          ####
+          {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: git-sync
+          args:
+            - --repo={{ .Values.git.repository }}
+            - --root=/tmp/git
+            - --link=head
+            - --http-bind=:8005
+            - --init-period=5s
+            - --period={{ .Values.git.syncPeriod }}
+            - --init-max-failures=30
+            - --max-failures=1000
+            - --verbose=2
+          {{- with .Values.git.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.git.username }}
+            - --username={{ .Values.git.username }}
+          {{- end }}
+          {{- if or .Values.git.token .Values.git.existingSecret }}
+          env:
+            - name: GITSYNC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "git-sync-webserver.fullname" .) .Values.git.existingSecret }}
+                  key: token
+          {{- end }}
+          {{- with .Values.gitSync.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.gitSync.image.repository }}:{{ .Values.gitSync.image.tag }}"
+          imagePullPolicy: {{ .Values.gitSync.pullPolicy }}
+          ports:
+            - name: gitsync
+              containerPort: 8005
+              protocol: TCP
+          {{- with .Values.gitSync.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gitSync.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gitSync.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: git
+              mountPath: /tmp
+      volumes:
+        - name: git
+          emptyDir: {}
+      # Python
+      {{- if eq .Values.webserver.type "python" }}
+        - name: configmap
+          configMap:
+            name: {{ include "git-sync-webserver.fullname" . }}
+        - name: tmp
+          emptyDir: {}
+
+      initContainers:
+        - name: git-sync-init
+          args:
+            - --repo={{ .Values.git.repository }}
+            - --root=/tmp/git
+            - --link=head
+            - --init-period=5s
+            - --init-max-failures=30
+            - --one-time
+            - --verbose=2
+          {{- with .Values.git.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.git.username }}
+            - --username={{ .Values.git.username }}
+          {{- end }}
+          {{- if or .Values.git.token .Values.git.existingSecret }}
+          env:
+            - name: GITSYNC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "git-sync-webserver.fullname" .) .Values.git.existingSecret }}
+                  key: token
+          {{- end }}
+          {{- with .Values.gitSync.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.gitSync.image.repository }}:{{ .Values.gitSync.image.tag }}"
+          imagePullPolicy: {{ .Values.gitSync.pullPolicy }}
+          {{- with .Values.gitSync.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: git
+              mountPath: /tmp
+
+      ###
+      {{- end }}
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
