@@ -1,0 +1,38 @@
+name: Release Charts
+
+on: workflow_dispatch
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@0a4a76cd0d743c104539192612dbc24a61c3e3c1
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          packages_with_index: true
+      - name: Log in to the OCI registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push charts to the registry
+        run: |
+          shopt -s nullglob
+          for PKG in .cr-release-packages/*.tgz; do
+            helm push "${PKG}" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/helm-charts"
+          done

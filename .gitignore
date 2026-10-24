@@ -1,0 +1,5 @@
+# Packaged chart tarballs are build artifacts — never commit them.
+*.tgz
+
+# The root index.yaml lives on the gh-pages branch only, never on main.
+/index.yaml
