@@ -1,0 +1,13 @@
+apiVersion: v1
+entries:
+  git-sync-webserver:
+  - apiVersion: v2
+    created: "2026-10-24T12:40:08.47116908Z"
+    description: Run a webserver with content from a git server
+    digest: e0316bba95b883428224aa74f9431bdea35d8906826f24a2660332d09de9c407
+    name: git-sync-webserver
+    type: application
+    urls:
+    - git-sync-webserver-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-10-24T12:40:08.471180301Z"
