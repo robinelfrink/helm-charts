@@ -1,0 +1,35 @@
+{{- if eq .Values.webserver.type "python" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "git-sync-webserver.fullname" . }}
+  labels:
+    {{- include "git-sync-webserver.labels" . | nindent 4 }}
+data:
+  python.entrypoint.sh: |-
+    if [ ! -f /data/main.py ]; then
+        echo "Python code not found, exiting."
+        sleep 5
+        exit 1
+    fi
+
+    python -m venv /tmp/venv
+    . /tmp/venv/bin/activate
+
+    export PYTHONPYCACHEPREFIX=/tmp/cache
+
+    pip install --no-cache-dir --prefer-binary gunicorn
+
+    if [ -f /data/requirements.txt ]; then
+        pip install --no-cache-dir --prefer-binary --requirement /data/requirements.txt
+    fi
+
+    gunicorn \
+        --chdir /data \
+        --control-socket /tmp/gunicorn.ctl \
+        --reload \
+        --access-logfile - \
+        --workers ${GUNICORN_WORKERS} \
+        --bind 0.0.0.0:${GUNICORN_PORT} \
+        ${GUNICORN_MODULE}
+{{- end }}
