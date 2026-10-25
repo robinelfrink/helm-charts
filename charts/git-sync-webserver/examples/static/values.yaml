@@ -1,0 +1,14 @@
+git:
+  repository: https://github.com/robinelfrink/helm-charts
+
+webserver:
+  type: static
+  path: charts/git-sync-webserver/examples/static
+
+ingress:
+  enabled: true
+  hosts:
+    - host: static.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific

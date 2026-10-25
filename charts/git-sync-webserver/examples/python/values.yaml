@@ -1,0 +1,14 @@
+git:
+  repository: https://github.com/robinelfrink/helm-charts
+
+webserver:
+  type: python
+  path: charts/git-sync-webserver/examples/python
+
+ingress:
+  enabled: true
+  hosts:
+    - host: python.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
