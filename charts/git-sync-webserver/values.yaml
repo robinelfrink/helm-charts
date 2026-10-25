@@ -186,6 +186,15 @@ httpRoute:
   #     - name: version
   #       value: v2
 
+persistence:
+  enabled: false
+  accessMode: ReadWriteOnce
+  # storageClass: null
+  # additionalLabels: {}
+  # annotations: {}
+  storageSize: 8Gi
+  mountPoint: /persistence
+
 # Additional volumes on the output Deployment definition.
 extraVolumes: []
   # - name: foo
