@@ -81,6 +81,19 @@ webserver:
         module: 'main:app'
         workers: 2
 
+    custom:
+      image:
+        repository: <custom image repository>
+        tag: <custom image tag>
+      containerPort: 8080
+      mountPath: /data
+      # command:
+      #   - custom
+      #   - command
+      # args:
+      #   - custom
+      #   - args
+
 # Configuration for git-sync container.
 gitSync:
   image:

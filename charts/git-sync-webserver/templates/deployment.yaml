@@ -56,6 +56,18 @@ spec:
               value: "{{ .Values.webserver.types.python.gunicorn.workers }}"
             - name: GUNICORN_MODULE
               value: "{{ .Values.webserver.types.python.gunicorn.module }}"
+
+          # Custom
+          {{- else if eq .Values.webserver.type "custom" }}
+          image: "{{ .Values.webserver.types.custom.image.repository }}:{{ .Values.webserver.types.custom.image.tag }}"
+          {{-   with .Values.webserver.types.custom.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{-   end }}
+          {{-   with .Values.webserver.types.custom.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{-   end}}
           {{- end }}
 
           ####
@@ -66,7 +78,11 @@ spec:
           imagePullPolicy: {{ .Values.webserver.pullPolicy }}
           ports:
             - name: http
+              {{- if eq .Values.webserver.type "custom" }}
+              containerPort: {{ .Values.webserver.types.custom.containerPort }}
+              {{- else }}
               containerPort: {{ .Values.webserver.port }}
+              {{- end }}
               protocol: TCP
           {{- with .Values.webserver.livenessProbe }}
           livenessProbe:
@@ -82,7 +98,11 @@ spec:
           {{- end }}
           volumeMounts:
             - name: git
+              {{- if eq .Values.webserver.type "custom" }}
+              mountPath: {{ .Values.webserver.types.custom.mountPath }}
+              {{- else }}
               mountPath: /data
+              {{- end }}
               subPath: git/head/{{ trimAll "/" .Values.webserver.path }}
               readOnly: true
           {{- if .Values.persistence.enabled }}
