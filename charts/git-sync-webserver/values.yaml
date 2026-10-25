@@ -67,8 +67,8 @@ webserver:
 
     static:
       image:
-        repository: joseluisq/static-web-server
-        tag: "2.9.0-alpine"
+        repository: ghcr.io/static-web-server/static-web-server
+        tag: "2.44-alpine"
       # See https://static-web-server.net/v3/configuration/cli.html for more options
       args: ['--port=8080', '--root=/data', '--log-level=info', '--log-remote-address=true']
 
