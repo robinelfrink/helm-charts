@@ -159,7 +159,9 @@ spec:
             name: {{ include "git-sync-webserver.fullname" . }}
         - name: tmp
           emptyDir: {}
+      {{- end }}
 
+      ###
       initContainers:
         - name: git-sync-init
           args:
@@ -198,8 +200,6 @@ spec:
             - name: git
               mountPath: /tmp
 
-      ###
-      {{- end }}
       {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
